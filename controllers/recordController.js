@@ -32,21 +32,23 @@ class RecordController {
     }
 
     /**
-     * @desc    Get all financial records (with filters)
+     * @desc    Get all financial records (with filters, search, and pagination)
      * @route   GET /api/records
      * @access  Private (Viewer, Analyst, Admin)
      */
     static async getRecords(req, res, next) {
         try {
-            // Extract filters from Query Params
-            const { type, category, startDate, endDate } = req.query;
+            // Extract standard filters plus new page, limit, and search parameters
+            const { type, category, startDate, endDate, search, page, limit } = req.query;
             
-            const records = await RecordService.getRecords({ type, category, startDate, endDate });
+            // The service now returns both standard records and pagination info
+            const result = await RecordService.getRecords({ type, category, startDate, endDate, search, page, limit });
 
             res.status(200).json({
                 success: true,
-                count: records.length,
-                data: records
+                count: result.records.length,
+                pagination: result.pagination,
+                data: result.records
             });
         } catch (error) {
             next(error);

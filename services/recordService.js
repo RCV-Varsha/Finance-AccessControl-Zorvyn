@@ -14,13 +14,13 @@ class RecordService {
     }
 
     /**
-     * Get records with optional filtering (date range, category, type)
+     * Get records with pagination, search, and optional filtering
      * For Analyst and Admin to view. Viewer can view too.
      */
     static async getRecords(filters = {}) {
         let query = {};
 
-        // Build MongoDB query dynamically based on provided filters
+        // 1. Basic Filters
         if (filters.type) {
             query.type = filters.type;
         }
@@ -35,8 +35,36 @@ class RecordService {
             if (filters.endDate) query.date.$lte = new Date(filters.endDate);
         }
 
-        // Sort by date descending
-        return FinancialRecord.find(query).sort({ date: -1 }).populate('createdBy', 'name email');
+        // 2. Search Functionality
+        if (filters.search) {
+            // Use regex for case-insensitive partial match on description or category
+            query.$or = [
+                { description: { $regex: filters.search, $options: 'i' } },
+                { category: { $regex: filters.search, $options: 'i' } }
+            ];
+        }
+
+        // 3. Pagination Configuration
+        const page = parseInt(filters.page) || 1;
+        const limit = parseInt(filters.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // 4. Execute Queries
+        const total = await FinancialRecord.countDocuments(query);
+        const records = await FinancialRecord.find(query)
+            .sort({ date: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('createdBy', 'name email');
+
+        return {
+            records,
+            pagination: {
+                total,
+                page,
+                pages: Math.ceil(total / limit)
+            }
+        };
     }
 
     /**
